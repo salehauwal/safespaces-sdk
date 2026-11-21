@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SecureIT Safe Spaces SDK v2.0 - Enterprise Console</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b1120; color: #e2e8f0; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 15px; margin-bottom: 25px; }
+        .badge { background: #0284c7; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #0284c7; color: white; border-color: #0284c7; }
+        .panel { background: #1e293b; padding: 25px; border-radius: 10px; border: 1px solid #334155; }
+        textarea { width: 100%; height: 90px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-size: 14px; box-sizing: border-box; }
+        .controls { display: flex; gap: 15px; margin-top: 12px; align-items: center; }
+        select, input { background: #0f172a; color: white; border: 1px solid #334155; padding: 10px; border-radius: 6px; }
+        .run-btn { background: #10b981; color: #064e3b; border: none; padding: 10px 22px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .run-btn:hover { background: #34d399; }
+        pre { background: #090d16; padding: 15px; border-radius: 6px; overflow-x: auto; color: #38bdf8; font-size: 13px; border: 1px solid #1e293b; }
+        .alert-card { background: #0f172a; border-left: 4px solid #ef4444; padding: 15px; margin-bottom: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .alert-card.resolved { border-left-color: #10b981; opacity: 0.7; }
+        .resolve-btn { background: #334155; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h2 style="margin:0; color:#38bdf8;">🛡️ SecureIT "Safe Spaces" SDK</h2>
+                <small style="color:#94a3b8;">Localized NLP Threat Engine & EdTech DLP Infrastructure</small>
+            </div>
+            <span class="badge">v2.0.0 ML PRODUCTION</span>
+        </div>
+
+        <div class="tabs">
+            <button id="tabSandbox" class="tab-btn active" onclick="switchTab('sandbox')">1. Live API & ML Sandbox</button>
+            <button id="tabAdmin" class="tab-btn" onclick="switchTab('admin')">2. School Admin Alert Queue (<span id="alertCount">0</span>)</button>
+        </div>
+
+        <div id="sandboxPanel" class="panel">
+            <h3 style="margin-top:0;">Test Real-Time Student Message Stream</h3>
+            <p style="color:#94a3b8; font-size:14px;">Test anti-evasion decoding or disguised numbers (e.g., <code>080-3123-4567</code>).</p>
+            <textarea id="chatInput" placeholder="Enter student chat message..."></textarea>
+            <div class="controls">
+                <input type="text" id="studentId" value="STU-LAG-4092" placeholder="Student ID">
+                <select id="sensitivity">
+                    <option value="strict">Strict Mode (Primary/Secondary)</option>
+                    <option value="moderate">Moderate Mode (University)</option>
+                    <option value="lenient">Lenient Mode</option>
+                </select>
+                <button class="run-btn" onclick="runAudit()">Execute ML Audit</button>
+            </div>
+            <h4>API JSON Response Payload:</h4>
+            <pre id="jsonOutput">// Awaiting API inference request...</pre>
+        </div>
+
+        <div id="adminPanel" class="panel" style="display:none;">
+            <h3 style="margin-top:0;">School Counselor & Admin Escalation Queue</h3>
+            <p style="color:#94a3b8; font-size:14px;">High-risk threats intercepted across connected EdTech portals appear here for human-in-the-loop review.</p>
+            <div id="alertsList"><p style="color:#64748b;">No threats flagged yet. Test a message in the Sandbox tab.</p></div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            document.getElementById('tabSandbox').classList.remove('active');
+            document.getElementById('tabAdmin').classList.remove('active');
+            if (tab === 'sandbox') {
+                document.getElementById('sandboxPanel').style.display = 'block';
+                document.getElementById('adminPanel').style.display = 'none';
+                document.getElementById('tabSandbox').classList.add('active');
+            } else {
+                document.getElementById('sandboxPanel').style.display = 'none';
+                document.getElementById('adminPanel').style.display = 'block';
+                document.getElementById('tabAdmin').classList.add('active');
+                loadAlerts();
+            }
+        }
+
+        async function runAudit() {
+            const text = document.getElementById('chatInput').value;
+            const student_id = document.getElementById('studentId').value;
+            const sensitivity = document.getElementById('sensitivity').value;
+            if (!text) return;
+
+            const res = await fetch('/api/v2/moderate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, student_id, sensitivity })
+            });
+            const data = await res.json();
+            document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
+            loadAlerts();
+        }
+
+        async function loadAlerts() {
+            const res = await fetch('/api/v2/alerts');
+            const data = await res.json();
+            document.getElementById('alertCount').textContent = data.total_alerts;
+            const list = document.getElementById('alertsList');
+            if (data.alerts.length === 0) return;
+
+            list.innerHTML = data.alerts.map(a => `
+                <div class="alert-card ${a.status === 'RESOLVED_BY_ADMIN' ? 'resolved' : ''}">
+                    <div>
+                        <strong style="color:#f87171;">[${a.alert_id}] ${a.categories.join(' + ')}</strong> 
+                        <span style="font-size:12px; color:#94a3b8;">| Student: ${a.student_id} | Risk: ${a.risk_score} | ${a.timestamp}</span>
+                        <p style="margin:8px 0 4px 0;"><strong>Sanitized:</strong> ${a.sanitized_text}</p>
+                        <small style="color:#64748b;">Status: ${a.status}</small>
+                    </div>
+                    ${a.status === 'PENDING_REVIEW' ? `<button class="resolve-btn" onclick="resolveAlert('${a.alert_id}')">Mark Resolved</button>` : '<span>✅</span>'}
+                </div>
+            `).join('');
+        }
+
+        async function resolveAlert(id) {
+            await fetch('/api/v2/alerts/' + id + '/resolve', { method: 'POST' });
+            loadAlerts();
+        }
+    </script>
+</body>
+</html>
